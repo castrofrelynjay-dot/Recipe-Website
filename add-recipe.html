@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Recipe | Hapag Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="add-recipe-body">
+    <div class="recipe-editor-container">
+        <h2 id="editorTitle" style="text-align:center; color:#1282a4; margin-bottom:20px;">New Recipe</h2>
+        
+        <div class="input-field-group">
+            <label>Title</label>
+            <input type="text" id="recipeTitle" class="styled-input" placeholder="Recipe name...">
+        </div>
+
+        <div class="input-field-group">
+            <label>Image</label>
+            <input type="file" id="recipeImage" class="styled-input" accept="image/*">
+        </div>
+
+        <div class="input-field-group">
+            <label>Instructions</label>
+            <textarea id="recipeSteps" class="styled-textarea" placeholder="Ingredients and steps..."></textarea>
+        </div>
+
+        <button class="login-btn" id="saveBtn" style="background:#1282a4;">Save Recipe</button>
+        <a href="index.html" style="display:block; text-align:center; margin-top:15px; color:#888; text-decoration:none;">Cancel</a>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDL8NMWIDSp2uZ95XYfD4VVeExNg6Gk5QY",
+            authDomain: "login-example-79848.firebaseapp.com",
+            projectId: "login-example-79848",
+            storageBucket: "login-example-79848.firebasestorage.app",
+            messagingSenderId: "1096469675828",
+            appId: "1:1096469675828:web:5b7c18612516d5bf50af61"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const recipeId = urlParams.get('name');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.replace('login.html');
+            } else if (recipeId) {
+                const docRef = doc(db, "recipes", recipeId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('recipeTitle').value = data.title;
+                    document.getElementById('recipeSteps').value = data.instructions;
+                    document.getElementById('editorTitle').innerText = "Viewing/Editing: " + data.title;
+                    document.getElementById('recipeTitle').readOnly = true; 
+                }
+            }
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            const user = auth.currentUser;
+            const title = document.getElementById('recipeTitle').value;
+            const steps = document.getElementById('recipeSteps').value;
+            const imageInput = document.getElementById('recipeImage');
+
+            if (!title.trim()) {
+                alert("Title is required.");
+                return;
+            }
+
+            if (imageInput.files && imageInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    await uploadRecipe(title, steps, e.target.result, user.uid);
+                };
+                reader.readAsDataURL(imageInput.files[0]);
+            } else {
+                const docRef = doc(db, "recipes", title);
+                const docSnap = await getDoc(docRef);
+                const existingImage = docSnap.exists() ? docSnap.data().image : null;
+                await uploadRecipe(title, steps, existingImage, user.uid);
+            }
+        });
+
+        async function uploadRecipe(title, instructions, image, uid) {
+            try {
+                const recipeData = {
+                    title,
+                    instructions,
+                    userId: uid,
+                    updatedAt: serverTimestamp()
+                };
+                if (image) recipeData.image = image;
+
+                await setDoc(doc(db, "recipes", title), recipeData, { merge: true });
+                window.location.href = 'index.html';
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

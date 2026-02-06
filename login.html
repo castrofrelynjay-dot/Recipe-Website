@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Hapag Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="login-page">
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <div class="login-wrapper">
+        <div class="form-container glass-effect">
+            <div class="welcome-header">
+                <h2 id="formTitle">Create Account</h2>
+            </div>
+
+            <form id="loginForm">
+                <div class="input-group">
+                    <label>Email Id</label>
+                    <div class="input-wrapper">
+                        <i class="fa-regular fa-envelope"></i>
+                        <input type="email" id="email" placeholder="Enter your email" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                    </div>
+                </div>
+
+                <a href="#" class="forgot-pass">Forgot password?</a>
+                <button type="submit" class="login-btn" id="submitBtn">REGISTER</button>
+            </form>
+
+            <div class="divider"><span>OR</span></div>
+
+            <div class="social-login">
+                <button type="button" class="social-btn" id="googleBtn">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" style="width:16px;">
+                    <span>Sign in with Google</span>
+                </button>
+            </div>
+
+            <p class="register-text">Already have an account? <a href="#" id="toggleAuth" style="color:white; text-decoration:underline;">Login Now</a></p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDL8NMWIDSp2uZ95XYfD4VVeExNg6Gk5QY",
+            authDomain: "login-example-79848.firebaseapp.com",
+            projectId: "login-example-79848",
+            storageBucket: "login-example-79848.firebasestorage.app",
+            messagingSenderId: "1096469675828",
+            appId: "1:1096469675828:web:5b7c18612516d5bf50af61"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        const loginForm = document.getElementById('loginForm');
+        const overlay = document.getElementById('loadingOverlay');
+        const toggleAuth = document.getElementById('toggleAuth');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const googleBtn = document.getElementById('googleBtn');
+
+        let isRegistering = true;
+
+        toggleAuth.addEventListener('click', (e) => {
+            e.preventDefault();
+            isRegistering = !isRegistering;
+            formTitle.innerText = isRegistering ? "Create Account" : "Welcome Back";
+            submitBtn.innerText = isRegistering ? "REGISTER" : "LOGIN";
+            toggleAuth.innerText = isRegistering ? "Login Now" : "Register Now";
+        });
+
+        async function syncUserToDB(user) {
+            await setDoc(doc(db, "users", user.uid), {
+                email: user.email,
+                uid: user.uid,
+                lastLogin: serverTimestamp()
+            }, { merge: true });
+        }
+
+        googleBtn.addEventListener('click', async () => {
+            overlay.classList.add('active');
+            try {
+                const result = await signInWithPopup(auth, provider);
+                await syncUserToDB(result.user);
+                window.location.replace('index.html');
+            } catch (err) {
+                overlay.classList.remove('active');
+                alert(err.message);
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            overlay.classList.add('active');
+
+            try {
+                let userCredential;
+                if (isRegistering) {
+                    userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                } else {
+                    userCredential = await signInWithEmailAndPassword(auth, email, password);
+                }
+                await syncUserToDB(userCredential.user);
+                window.location.replace('index.html');
+            } catch (err) {
+                overlay.classList.remove('active');
+                alert(err.message);
+            }
+        });
+    </script>
+</body>
+</html>
